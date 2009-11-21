@@ -1,11 +1,11 @@
 /*
  * YUI Compressor
- * http://developer.yahoo.com/yui/compressor/
- * Author: Julien Lecomte -  http://www.julienlecomte.net/
- * Copyright (c) 2011 Yahoo! Inc.  All rights reserved.
- * The copyrights embodied in the content of this file are licensed
- * by Yahoo! Inc. under the BSD (revised) open source license.
+ * Author: Julien Lecomte <jlecomte@yahoo-inc.com>
+ * Copyright (c) 2007, Yahoo! Inc. All rights reserved.
+ * Code licensed under the BSD License:
+ *     http://developer.yahoo.net/yui/license.txt
  */
+
 package com.yahoo.platform.yui.compressor;
 
 import org.mozilla.javascript.*;
@@ -52,6 +52,14 @@ public class JavaScriptCompressor {
                 twos.add(one + Character.toString(c));
         }
 
+        // Remove two-letter JavaScript reserved words and built-in globals...
+        twos.remove("as");
+        twos.remove("is");
+        twos.remove("do");
+        twos.remove("if");
+        twos.remove("in");
+        twos.removeAll(builtin);
+
         threes = new ArrayList();
         for (int i = 0; i < twos.size(); i++) {
             String two = (String) twos.get(i);
@@ -62,15 +70,7 @@ public class JavaScriptCompressor {
             for (char c = '0'; c <= '9'; c++)
                 threes.add(two + Character.toString(c));
         }
-        
-        // Remove two-letter JavaScript reserved words and built-in globals...
-        twos.remove("as");
-        twos.remove("is");
-        twos.remove("do");
-        twos.remove("if");
-        twos.remove("in");
-        twos.removeAll(builtin);
-        
+
         // Remove three-letter JavaScript reserved words and built-in globals...
         threes.remove("for");
         threes.remove("int");
@@ -170,8 +170,6 @@ public class JavaScriptCompressor {
         literals.put(new Integer(Token.DOTDOT), "..");
         literals.put(new Integer(Token.DOTQUERY), ".(");
         literals.put(new Integer(Token.XMLATTR), "@");
-        literals.put(new Integer(Token.LET), "let ");
-        literals.put(new Integer(Token.YIELD), "yield ");
 
         // See http://developer.mozilla.org/en/docs/Core_JavaScript_1.5_Reference:Reserved_Words
 
@@ -310,7 +308,6 @@ public class JavaScriptCompressor {
             throws IOException, EvaluatorException {
 
         CompilerEnvirons env = new CompilerEnvirons();
-        env.setLanguageVersion(Context.VERSION_1_7);
         Parser parser = new Parser(env, reporter);
         parser.parse(in, null, 1);
         String source = parser.getEncodedSource();
@@ -513,6 +510,85 @@ public class JavaScriptCompressor {
         }
     }
 
+    /*
+     * Transforms new Array(...) into [...]
+     */
+    private static void optimizeArray(ArrayList tokens) {
+
+        String tv;
+        int i, length, pc=0;
+        JavaScriptToken token, arg1, rp, lp;
+
+        Stack as = new Stack();
+        // problem: Array;
+        // avoid a lone Array
+        // TODO only optimize Array( or new Array
+        // problem: new Array(n); N is an int
+        // optimize: new optional iff Array is not alone. new Array() != Array
+        // optimize: Array(0)
+        for (i = 0, length = tokens.size(); i < length; i++) {
+            token = ((JavaScriptToken) tokens.get(i));
+            //System.out.println(""+token.getType()+"|"+token.getValue());
+            if (token.getType() == Token.NAME && token.getValue().equals("Array")
+                && ((i > 0 && ((JavaScriptToken) tokens.get(i - 1)).getType() != Token.NEW)
+                || (i + 1 < length && ((JavaScriptToken) tokens.get(i + 1)).getType() != Token.LP))) {
+                if (i+2 < length) {
+                    lp   = (JavaScriptToken) tokens.get(i+1);
+                    arg1 = (JavaScriptToken) tokens.get(i+2);
+                    rp   = (i+3 < length)
+                        ? (JavaScriptToken) tokens.get(i+3)
+                        : null;
+                }
+                else {
+                    lp = arg1 = rp = null;
+                }
+                // new Array
+                if (i > 1 && ((JavaScriptToken) tokens.get(i-1)).getType() == Token.NEW
+                    && (lp == null || (lp != null && lp.getType() != Token.LP))) {
+                    tokens.set(i-1, new JavaScriptToken(Token.STRING, ""));
+                    tokens.set(i, new JavaScriptToken(Token.STRING, "[]"));
+                }
+                // not Array(INT)
+                else if (!(arg1 != null && arg1.getType() == Token.NUMBER
+                             && rp != null && rp.getType() == Token.RP)) {
+                    tokens.set(i, new JavaScriptToken(Token.STRING, ""));
+                    if (i > 1 && ((JavaScriptToken) tokens.get(i-1)).getType() == Token.NEW) {
+                        tokens.set(i-1, new JavaScriptToken(Token.STRING, ""));
+                    }
+                    as.push(Integer.valueOf(pc));
+                    pc=1;
+                }
+                // Array(0)
+                else if (rp != null && lp.getType() == Token.LP
+                             && arg1.getType() == Token.NUMBER
+                             && arg1.getValue().equals("0")
+                             && rp.getType() == Token.RP) {
+                    if (i > 1 && ((JavaScriptToken) tokens.get(i-1)).getType() == Token.NEW) {
+                        tokens.set(i-1, new JavaScriptToken(Token.STRING, ""));
+                    }
+                    tokens.set(i, new JavaScriptToken(Token.STRING, "[]"));
+                    tokens.set(i+1, new JavaScriptToken(Token.STRING, ""));
+                    tokens.set(i+2, new JavaScriptToken(Token.STRING, ""));
+                    tokens.set(i+3, new JavaScriptToken(Token.STRING, ""));
+
+                }
+            }
+            else if (pc > 0 && token.getType() == Token.LP) {
+                if (pc == 1) {
+                    tokens.set(i, new JavaScriptToken(Token.LB, "["));
+                }
+                pc++;
+            }
+            else if (pc > 0 && token.getType() == Token.RP) {
+                pc--;
+                if (pc == 1) {
+                    tokens.set(i, new JavaScriptToken(Token.RB, "]"));
+                    pc = ((Integer) as.pop()).intValue();
+                }
+            }
+        }
+    }
+
     private ErrorReporter logger;
 
     private boolean munge;
@@ -536,7 +612,7 @@ public class JavaScriptCompressor {
         this.tokens = parse(in, reporter);
     }
 
-    public void compress(Writer out, Writer mungemap, int linebreak, boolean munge, boolean verbose,
+    public void compress(Writer out, int linebreak, boolean munge, boolean verbose,
             boolean preserveAllSemiColons, boolean disableOptimizations)
             throws IOException {
 
@@ -548,6 +624,7 @@ public class JavaScriptCompressor {
         if (!disableOptimizations) {
             optimizeObjectMemberAccess(this.tokens);
             optimizeObjLitMemberDecl(this.tokens);
+            optimizeArray(this.tokens);
         }
 
         buildSymbolTree();
@@ -556,10 +633,6 @@ public class JavaScriptCompressor {
         StringBuffer sb = printSymbolTree(linebreak, preserveAllSemiColons);
 
         out.write(sb.toString());
-
-        if (mungemap != null) {
-            printMungeMapping(mungemap);
-        }
     }
 
     private ScriptOrFnScope getCurrentScope() {
@@ -579,11 +652,7 @@ public class JavaScriptCompressor {
     }
 
     private JavaScriptToken getToken(int delta) {
-        try {
-            return (JavaScriptToken) tokens.get(offset + delta);
-        } catch(IndexOutOfBoundsException ex) {
-            return null;
-        }
+        return (JavaScriptToken) tokens.get(offset + delta);
     }
 
     /*
@@ -881,15 +950,7 @@ public class JavaScriptCompressor {
                                     // We don't need to declare longer symbols since they won't cause
                                     // any conflict with other munged symbols.
                                     globalScope.declareIdentifier(symbol);
-
-                                    // I removed the warning since was only being done when
-                                    // for identifiers 3 chars or less, and was just causing
-                                    // noise for people who happen to rely on an externally
-                                    // declared variable that happen to be that short.  We either
-                                    // should always warn or never warn -- the fact that we
-                                    // declare the short symbols in the global space doesn't
-                                    // change anything.
-                                    // warn("Found an undeclared symbol: " + symbol, true);
+                                    warn("Found an undeclared symbol: " + symbol, true);
                                 }
 
                             } else {
@@ -1031,7 +1092,7 @@ public class JavaScriptCompressor {
                                     // We don't need to declare longer symbols since they won't cause
                                     // any conflict with other munged symbols.
                                     globalScope.declareIdentifier(symbol);
-                                    // warn("Found an undeclared symbol: " + symbol, true);
+                                    warn("Found an undeclared symbol: " + symbol, true);
                                 }
 
                             } else {
@@ -1099,7 +1160,6 @@ public class JavaScriptCompressor {
 
         String symbol;
         JavaScriptToken token;
-        JavaScriptToken lastToken = getToken(0);
         ScriptOrFnScope currentScope;
         JavaScriptIdentifier identifier;
 
@@ -1115,10 +1175,8 @@ public class JavaScriptCompressor {
             token = consumeToken();
             symbol = token.getValue();
             currentScope = getCurrentScope();
+
             switch (token.getType()) {
-                case Token.GET:
-                case Token.SET:
-                    lastToken = token;
 
                 case Token.NAME:
 
@@ -1146,20 +1204,9 @@ public class JavaScriptCompressor {
                     break;
 
                 case Token.REGEXP:
+                case Token.NUMBER:
                 case Token.STRING:
                     result.append(symbol);
-                    break;
-
-                case Token.NUMBER:
-                    if (getToken(0).getType() == Token.DOT) {
-                        // calling methods on int requires a leading dot so JS doesn't
-                        // treat the method as the decimal component of a float
-                        result.append('(');
-                        result.append(symbol);
-                        result.append(')');
-                    } else {
-                        result.append(symbol);
-                    }
                     break;
 
                 case Token.ADD:
@@ -1185,10 +1232,7 @@ public class JavaScriptCompressor {
                     break;
 
                 case Token.FUNCTION:
-                    if (lastToken.getType() != Token.GET && lastToken.getType() != Token.SET) {
-                        result.append("function");
-                    }
-                    lastToken = token;
+                    result.append("function");
                     token = consumeToken();
                     if (token.getType() == Token.NAME) {
                         result.append(' ');
@@ -1304,22 +1348,12 @@ public class JavaScriptCompressor {
                     }
                     break;
 
-                case Token.COMMA:
-                    // No need to output a comma if the next character is a right-curly or a right-square bracket
-                    if (offset < length && getToken(0).getType() != Token.RC && getToken(0).getType() != Token.RB) {
-                        result.append(',');
-                    }
-                    break;
-
                 case Token.CONDCOMMENT:
                 case Token.KEEPCOMMENT:
                     if (result.length() > 0 && result.charAt(result.length() - 1) != '\n') {
                         result.append("\n");
                     }
                     result.append("/*");
-                    if (token.getType() == Token.KEEPCOMMENT) {
-                        result.append("!");
-                    }
                     result.append(symbol);
                     result.append("*/\n");
                     break;
@@ -1351,11 +1385,5 @@ public class JavaScriptCompressor {
         }
 
         return result;
-    }
-
-    private void printMungeMapping(Writer map) throws IOException {
-        StringBuffer sb = new StringBuffer();
-        globalScope.getFullMapping(sb, "");
-        map.write(sb.toString());
     }
 }
