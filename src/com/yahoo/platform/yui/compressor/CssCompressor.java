@@ -329,11 +329,18 @@ public class CssCompressor {
         // Replace x.0(px,em,%) with x(px,em,%).
         css = css.replaceAll("([0-9])\\.0(px|em|%|in|cm|mm|pc|pt|ex|deg|g?rad|m?s|k?hz| |;)", "$1$2");
 
-        // Replace 0 0 0 0; with 0.
-        css = css.replaceAll(":0 0 0 0(;|})", ":0$1");
-        css = css.replaceAll(":0 0 0(;|})", ":0$1");
-        css = css.replaceAll(":0 0(;|})", ":0$1");
+        // 0|[+-]?([0-9]*\.)?[0-9]+(px|em|%|in|cm|mm|pc|pt|ex) is a number + unit in CSS
+        // Replace a a a a; with a
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1 \\1;", ":$1;");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1;", ":$1;");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1;", ":$1;");
 
+        // Replace a b a b; with a b
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\4;", ":$1 $4;");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1;", ":$1 $4;");
+
+        // Replace a b c b; with a c b
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\4;", ":$1 $4 $7;");
 
         // Replace background-position:0; with background-position:0 0;
         // same for transform-origin
