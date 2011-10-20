@@ -331,24 +331,24 @@ public class CssCompressor {
 
         // 0|[+-]?([0-9]*\.)?[0-9]+(px|em|%|in|cm|mm|pc|pt|ex) is a number + unit in CSS
         // Replace a a a a; with a
-        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1 \\1;", ":$1;");
-        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1;", ":$1;");
-        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1;", ":$1;");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1 \\1(;|})", ":$1$4");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1(;|})", ":$1$4;");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1(;|})", ":$1$4;");
 
         // Replace a b a b; with a b
-        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\4;", ":$1 $4;");
-        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1;", ":$1 $4;");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\4(;|})", ":$1 $4$7");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1(;|})", ":$1 $4$7");
 
         // Replace a b c b; with a c b
-        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\4;", ":$1 $4 $7;");
+        css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\4(;|})", ":$1 $4 $7$10");
 
         // Replace background-position:0; with background-position:0 0;
         // same for transform-origin
         sb = new StringBuffer();
-        p = Pattern.compile("(?i)(background-position|webkit-mask-position|transform-origin|webkit-transform-origin|moz-transform-origin|o-transform-origin|ms-transform-origin):0(;|})");
+        p = Pattern.compile("(?i)(background-position|transform-origin|webkit-transform-origin|moz-transform-origin|o-transform-origin|ms-transform-origin):(\\d+(px|em|%|in|cm|mm|pc|pt|ex))(;|})");
         m = p.matcher(css);
         while (m.find()) {
-            m.appendReplacement(sb, m.group(1).toLowerCase() + ":0 0" + m.group(2));
+            m.appendReplacement(sb, m.group(1).toLowerCase() + ":" + m.group(2) + " " + m.group(2) + m.group(4));
         }
         m.appendTail(sb);
         css = sb.toString();
