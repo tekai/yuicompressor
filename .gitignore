@@ -1,5 +1,5 @@
 build_tmp/
-node_modules
+build/
 .DS_Store
 .*.swp
 .svn
