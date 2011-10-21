@@ -348,7 +348,7 @@ public class CssCompressor {
         p = Pattern.compile("(?i)(background-position|transform-origin|webkit-transform-origin|moz-transform-origin|o-transform-origin|ms-transform-origin):(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex))(;|})");
         m = p.matcher(css);
         while (m.find()) {
-            m.appendReplacement(sb, m.group(1).toLowerCase() + ":" + m.group(2) + " " + m.group(2) + m.group(4));
+            m.appendReplacement(sb, m.group(1).toLowerCase() + ":" + m.group(2) + " " + m.group(2) + m.group(5));
         }
         m.appendTail(sb);
         css = sb.toString();
