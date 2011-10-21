@@ -624,7 +624,7 @@ public class JavaScriptCompressor {
         if (!disableOptimizations) {
             optimizeObjectMemberAccess(this.tokens);
             optimizeObjLitMemberDecl(this.tokens);
-            optimizeArray(this.tokens);
+            // optimizeArray(this.tokens);
         }
 
         buildSymbolTree();
