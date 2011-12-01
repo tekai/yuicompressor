@@ -333,7 +333,7 @@ public class CssCompressor {
         // reason: if the second value is not given, the default is != 0
         // restore later
         // TODO: does IE behave like the W3C spec?
-        css = css.replaceAll("(?i)(background|background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin):0 0(;|})", "$2:___YUICSSMIN_0_0___$3");
+        css = css.replaceAll("(?i)(background|background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin):0 0(;|})", "$1:___YUICSSMIN_0_0___$2");
 
         // Replace a a a a; with a
         // Note: this might break transform-origin if it gets a third value for 3D/z axis
@@ -349,7 +349,7 @@ public class CssCompressor {
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\4(;|})", ":$1 $4 $7$10");
 
         // Restore 0 0
-        css = css.replaceAll("(?i)(background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin|ms-transform-origin):___YUICSSMIN_0_0___(;|})", "$2:0 0$3");
+        css = css.replaceAll("(?i)(background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin|ms-transform-origin):___YUICSSMIN_0_0___(;|})", "$1:0 0$2");
 
         // Replace ms-transform-origin:0; with ms-transform-origin:0 0;
         // TODO: is this correct? not according to the W3C spec, see above
