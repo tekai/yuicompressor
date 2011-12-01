@@ -329,8 +329,14 @@ public class CssCompressor {
         // Replace x.0(px,em,%) with x(px,em,%).
         css = css.replaceAll("([0-9])\\.0(px|em|%|in|cm|mm|pc|pt|ex|deg|g?rad|m?s|k?hz| |;)", "$1$2");
 
-        // 0|[+-]?([0-9]*\.)?[0-9]+(px|em|%|in|cm|mm|pc|pt|ex) is a number + unit in CSS
+        // Expand property: 0 0 to ___YUICSSMIN_0_0___ to avoid wrongful compression to 0
+        // reason: if the second value is not given, the default is != 0
+        // restore later
+        // TODO: does IE behave like the W3C spec?
+        css = css.replaceAll("(?i)(background|background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin):0 0(;|})", "$2:___YUICSSMIN_0_0___$3");
+
         // Replace a a a a; with a
+        // Note: this might break transform-origin if it gets a third value for 3D/z axis
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1 \\1(;|})", ":$1$4");
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1(;|})", ":$1$4");
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1(;|})", ":$1$4");
@@ -342,10 +348,13 @@ public class CssCompressor {
         // Replace a b c b; with a c b
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\4(;|})", ":$1 $4 $7$10");
 
-        // Replace background-position:0; with background-position:0 0;
-        // same for transform-origin
+        // Restore 0 0
+        css = css.replaceAll("(?i)(background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin|ms-transform-origin):___YUICSSMIN_0_0___(;|})", "$2:0 0$3");
+
+        // Replace ms-transform-origin:0; with ms-transform-origin:0 0;
+        // TODO: is this correct? not according to the W3C spec, see above
         sb = new StringBuffer();
-        p = Pattern.compile("(?i)(background-position|transform-origin|webkit-transform-origin|moz-transform-origin|o-transform-origin|ms-transform-origin):(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex))(;|})");
+        p = Pattern.compile("(?i)(ms-transform-origin):(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex))(;|})");
         m = p.matcher(css);
         while (m.find()) {
             m.appendReplacement(sb, m.group(1).toLowerCase() + ":" + m.group(2) + " " + m.group(2) + m.group(5));
@@ -390,7 +399,7 @@ public class CssCompressor {
         // which makes the filter break in IE.
         // We also want to make sure we're only compressing #AABBCC patterns inside { }, not id selectors ( #FAABAC {} )
         // We also want to avoid compressing invalid values (e.g. #AABBCCD to #ABCD)
-        p = Pattern.compile("(\\=\\s*?[\"']?)?" + "#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])" + "(:?\\}|[^0-9a-fA-F{][^{]*?\\})");
+        p = Pattern.compile("(\\=\\s*?[\"']?)?" + "#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])" + "(:?\\}|[^0-9a-fA-F{][^{]*?\\})");
 
         m = p.matcher(css);
         sb = new StringBuffer();
@@ -440,7 +449,7 @@ public class CssCompressor {
 
         // border: none -> border:0
         sb = new StringBuffer();
-        p = Pattern.compile("(?i)(border|border-top|border-right|border-bottom|border-left|outline|background):none(;|})");
+        p = Pattern.compile("(?i)(border|border-top|border-right|border-bottom|border-left|outline):none(;|})");
         m = p.matcher(css);
         while (m.find()) {
             m.appendReplacement(sb, m.group(1).toLowerCase() + ":0" + m.group(2));
