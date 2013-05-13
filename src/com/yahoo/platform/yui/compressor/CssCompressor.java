@@ -329,14 +329,17 @@ public class CssCompressor {
         // Replace x.0(px,em,%) with x(px,em,%).
         css = css.replaceAll("([0-9])\\.0(px|em|%|in|cm|mm|pc|pt|ex|deg|g?rad|m?s|k?hz| |;)", "$1$2");
 
-        // Expand property: 0 0 to ___YUICSSMIN_0_0___ to avoid wrongful compression to 0
-        // reason: if the second value is not given, the default is != 0
-        // restore later
-        // TODO: does IE behave like the W3C spec?
-        css = css.replaceAll("(?i)(background|background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin):0 0(;|})", "$1:___YUICSSMIN_0_0___$2");
+        // The following properties may not be compressed, also convert to lower case
+        sb = new StringBuffer();
+        p = Pattern.compile("(?i)(background|background-position|webkit-mask-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin|ms-transform-origin):");
+        m = p.matcher(css);
+        while (m.find()) {
+            m.appendReplacement(sb, m.group(1).toLowerCase() + ":___YUICSSMIN_PRESERVE___");
+        }
+        m.appendTail(sb);
+        css = sb.toString();
 
         // Replace a a a a; with a
-        // Note: this might break transform-origin if it gets a third value for 3D/z axis
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1 \\1(;|})", ":$1$4");
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\1(;|})", ":$1$4");
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1(;|})", ":$1$4");
@@ -345,22 +348,14 @@ public class CssCompressor {
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1 \\4(;|})", ":$1 $4$7");
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\1(;|})", ":$1 $4$7");
 
-        // Replace a b c b; with a c b
+        // Replace a b c b; with a b c
         css = css.replaceAll(":(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) (0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex)) \\4(;|})", ":$1 $4 $7$10");
 
-        // Restore 0 0
-        css = css.replaceAll("(?i)(background-position|transform-origin|moz-transform-origin|webkit-transform-origin|o-transform-origin|ms-transform-origin):___YUICSSMIN_0_0___(;|})", "$1:0 0$2");
+        css = css.replace("___YUICSSMIN_PRESERVE___", "");
 
         // Replace ms-transform-origin:0; with ms-transform-origin:0 0;
         // TODO: is this correct? not according to the W3C spec, see above
-        sb = new StringBuffer();
-        p = Pattern.compile("(?i)(ms-transform-origin):(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex))(;|})");
-        m = p.matcher(css);
-        while (m.find()) {
-            m.appendReplacement(sb, m.group(1).toLowerCase() + ":" + m.group(2) + " " + m.group(2) + m.group(5));
-        }
-        m.appendTail(sb);
-        css = sb.toString();
+        css = css.replaceAll("(ms-transform-origin):(0|[+-]?(\\d*\\.)?\\d+(px|em|%|in|cm|mm|pc|pt|ex))(;|})", "$1:$2 $2$5");
 
         // Replace 0.6 to .6, but only when preceded by : or a white-space
         css = css.replaceAll("(:|\\s)0+\\.(\\d+)", "$1.$2");
@@ -399,7 +394,7 @@ public class CssCompressor {
         // which makes the filter break in IE.
         // We also want to make sure we're only compressing #AABBCC patterns inside { }, not id selectors ( #FAABAC {} )
         // We also want to avoid compressing invalid values (e.g. #AABBCCD to #ABCD)
-        p = Pattern.compile("(\\=\\s*?[\"']?)?" + "#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])" + "(:?\\}|[^0-9a-fA-F{][^{]*?\\})");
+        p = Pattern.compile("(\\=\\s*?[\"']?)?" + "#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])" + "(:?\\}|[^0-9a-fA-F{][^{]*?\\})");
 
         m = p.matcher(css);
         sb = new StringBuffer();
